@@ -1,103 +1,94 @@
 import React, { useState } from "react";
-import "../OptionsPage/Options.css";
+import "../OptionsPage/Options.css"; // Import CSS file
 import { useParams } from "react-router-dom";
 
 const Options = () => {
   const {id} = useParams()
-  const [options, setOptions] = useState(["", "", "", "", ""]); // Five options
-  const [correctIndex, setCorrectIndex] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [responseMessage, setResponseMessage] = useState("");
+  const [option, setOption] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [isCorrect, setIsCorrect] = useState(false);
 
-  const handleOptionChange = (index, value) => {
-    const newOptions = [...options];
-    newOptions[index] = value;
-    setOptions(newOptions);
-  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const handleSubmitAnswers = async () => {
-    if (correctIndex === null || options.every(opt => opt.trim() === "")) {
-      alert("Please fill in all options and select a correct answer.");
+    if (option.trim() === "" || answer.trim() === "") {
+      return alert("Option and Answer cannot be empty!");
+    }
+
+    let token = localStorage.getItem("token");
+    if (!token) {
+      alert("No authentication token found. Please log in.");
       return;
     }
-
-    // setIsSubmitting(true);
-    setResponseMessage("");
-
-    const answers = options.map((option, index) => ({
-      option: String.fromCharCode(65 + index), // A, B, C, D, E
-      answer_text: option,
-      correct: index === correctIndex,
-    }));
-     console.log("answer", answers)
-    let token = localStorage.getItem("token"); 
-    console.log("token", token)
-  
-    if (!token) {
-        throw new Error("No authentication token found. Please log in.");
-    }
-    token = token.replace(/^"(.*)"$/, "$1"); 
+    token = token.replace(/^"(.*)"$/, "$1");
 
     try {
+      console.log(option, answer, isCorrect, "info"); // Debugging
 
-      for (const answer of answers) {
-        const response = await fetch(`https://jjrsf-cbt-api.onrender.com/api/v1/clacbt_questions/26c7a466-cb7b-4ba6-b00e-7b8ed6a6611`, {
+      const response = await fetch(
+        `https://jjrsf-cbt-api.onrender.com/api/v1/clacbt_questions/${id}/clacbt_answers?question_id=${id}`,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `${token}`, // Replace with actual token
+            Authorization: `${token}`,
           },
-          body: JSON.stringify({ clacbt_answer: answer }),
-        });
-
-        const data = await response.json();
-        console.log("data", data)
-
-        if (!response.ok) {
-          throw new Error(`Failed to submit ${answer.option}: ${data.message}`);
+          body:JSON.stringify({
+            clacbt_answer: {
+              clacbt_answer: {
+                option: option.trim(), 
+                answer_text: answer.trim(),
+                correct: isCorrect,
+              },
+            },
+          }),
         }
+      );
 
-        console.log(`✅ Submitted ${answer.option}:`, data);
-      }
-
-      setResponseMessage("All answers submitted successfully!");
+      const result = await response.json();
+      console.log("Response:", result);
+      alert("Answer submitted successfully!");
     } catch (error) {
-      console.error("❌ Error:", error);
-      setResponseMessage("Submission failed. Check console for details.");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error submitting answer:", error);
+      alert("Submission failed!");
     }
   };
 
   return (
-    <div className="options-form">
-      <h2>Add Options & Answer</h2>
+    <div className="options-container">
+      <h2 className="title">Add Answer</h2>
 
-      <div className="options-container">
-        {options.map((option, index) => (
-          <div key={index} className="option-item">
-            <input
-              type="text"
-              value={option}
-              onChange={(e) => handleOptionChange(index, e.target.value)}
-              placeholder={`Option ${String.fromCharCode(65 + index)}`} // A, B, C...
-              required
-            />
-            <input
-              type="radio"
-              name="correctAnswer"
-              checked={correctIndex === index}
-              onChange={() => setCorrectIndex(index)}
-            />
-          </div>
-        ))}
-      </div>
+      <form onSubmit={handleSubmit}>
+        <label className="label">Option:</label>
+        <input
+          type="text"
+          value={option}
+          onChange={(e) => setOption(e.target.value)}
+          placeholder="Enter option (e.g., A, 1, True)"
+          className="input-box"
+        />
 
-      <button onClick={handleSubmitAnswers} className="add-answer-btn" disabled={isSubmitting}>
-        {isSubmitting ? "Submitting..." : "Submit Answers"}
-      </button>
+        <label className="label">Answer:</label>
+        <input
+          type="text"
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          placeholder="Enter answer"
+          className="input-box"
+        />
 
-      {responseMessage && <p className="response-message">{responseMessage}</p>}
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={isCorrect}
+            onChange={() => setIsCorrect(!isCorrect)}
+            className="checkbox"
+          />
+          Correct Answer
+        </label>
+
+        <button type="submit" className="submit-btn">Submit Answer</button>
+      </form>
     </div>
   );
 };
